@@ -1,29 +1,519 @@
----
-layout: default
-title: Jonathan Clark
----
-<!--
-<div class="span-23 title">
-  <div class="span-8"><a href="/index.html"><span class="lowlight">Agile or Dead</span></a></div>
-  <div class="span-15 last">
-    <a href="/blog.html">Blog</a>
-    <a href="/speaking.html">Speaking</a>
-    <a href="/advising.html">Advising</a>
-    <a href="/code.html">Code</a>
-    <a href="/cv.html">About</a>
-    <a href="http://feeds2.feedburner.com/github/fgmV">RSS</a>
-  </div>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+   <meta charset="UTF-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <title>root@portfolio:~</title>
+   <style>
+       :root {
+           --bg-color: #0c0c0c;
+           --text-color: #00ff00; /* Classic Terminal Green */
+           --prompt-color: #50fa7b; /* Dracula Green-ish */
+           --directory-color: #8be9fd; /* Cyan for dirs */
+           --file-color: #f8f8f2; /* White/Off-white for files */
+           --error-color: #ff5555;
+           --dim-color: #6272a4;
+           --font-stack: 'Courier New', Courier, monospace;
+       }
+
+
+       * {
+           box-sizing: border-box;
+       }
+
+
+       body {
+           margin: 0;
+           padding: 0;
+           background-color: var(--bg-color);
+           color: var(--text-color);
+           font-family: var(--font-stack);
+           font-size: 16px;
+           line-height: 1.5;
+           overflow-x: hidden;
+           height: 100vh;
+           display: flex;
+           flex-direction: column;
+       }
+
+
+       /* CRT Screen Effect (Optional, kept subtle) */
+       body::before {
+           content: " ";
+           display: block;
+           position: absolute;
+           top: 0;
+           left: 0;
+           bottom: 0;
+           right: 0;
+           background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+           z-index: 2;
+           background-size: 100% 2px, 3px 100%;
+           pointer-events: none;
+       }
+
+
+       #terminal {
+           padding: 20px;
+           flex: 1;
+           overflow-y: auto;
+           position: relative;
+           z-index: 1;
+           max-width: 1000px;
+           margin: 0 auto;
+           width: 100%;
+       }
+
+
+       /* Scrollbar styling */
+       ::-webkit-scrollbar {
+           width: 10px;
+       }
+       ::-webkit-scrollbar-track {
+           background: var(--bg-color);
+       }
+       ::-webkit-scrollbar-thumb {
+           background: #333;
+           border: 1px solid #000;
+       }
+
+
+       .output-line {
+           margin-bottom: 5px;
+           white-space: pre-wrap; /* Handle long text wrapping */
+           word-break: break-word;
+       }
+
+
+       .command-line {
+           display: flex;
+           margin-top: 5px;
+           align-items: center;
+       }
+
+
+       .prompt {
+           color: var(--prompt-color);
+           margin-right: 10px;
+           white-space: nowrap;
+           font-weight: bold;
+       }
+
+
+       #input-wrapper {
+           flex: 1;
+           display: flex;
+           position: relative;
+       }
+
+
+       #cmd-input {
+           background: transparent;
+           border: none;
+           color: var(--file-color);
+           font-family: var(--font-stack);
+           font-size: 16px;
+           width: 100%;
+           outline: none;
+           caret-color: var(--text-color);
+           padding: 0;
+           margin: 0;
+       }
+
+
+       /* Utility Classes for coloring output */
+       .dir { color: var(--directory-color); font-weight: bold; }
+       .file { color: var(--file-color); }
+       .error { color: var(--error-color); }
+       .dim { color: var(--dim-color); }
+       .highlight { color: #f1fa8c; } /* Yellow */
+       .link { color: #8be9fd; text-decoration: underline; cursor: pointer; }
+
+
+       /* Mobile adjustments */
+       @media (max-width: 600px) {
+           body { font-size: 14px; }
+           #cmd-input { font-size: 14px; }
+           #terminal { padding: 10px; }
+       }
+
+
+       /* Blink animation for cursor logic if we implemented custom cursor,
+          but native input caret works better for mobile accessibility */
+      
+       .scanline {
+           width: 100%;
+           height: 100px;
+           z-index: 10;
+           background: linear-gradient(0deg, rgba(0,0,0,0) 0%, rgba(51, 255, 51, 0.04) 50%, rgba(0,0,0,0) 100%);
+           opacity: 0.1;
+           position: absolute;
+           bottom: 100%;
+           animation: scanline 10s linear infinite;
+           pointer-events: none;
+       }
+
+
+       @keyframes scanline {
+           0% { bottom: 100%; }
+           80% { bottom: 100%; }
+           100% { bottom: -100%; }
+       }
+      
+       .ascii-art {
+           font-size: 12px;
+           line-height: 12px;
+           color: var(--prompt-color);
+           margin-bottom: 20px;
+           white-space: pre;
+           overflow-x: hidden;
+       }
+   </style>
+</head>
+<body>
+
+
+<div class="scanline"></div>
+<div id="terminal" onclick="document.getElementById('cmd-input').focus()">
+   <div id="output"></div>
+   <div class="command-line" id="input-line" style="display:none;">
+       <span class="prompt" id="prompt-text">guest@portfolio:~$</span>
+       <div id="input-wrapper">
+           <input type="text" id="cmd-input" autocomplete="off" spellcheck="false" autofocus>
+       </div>
+   </div>
 </div>
-<div class="span-8">
-  <div class="span-7">I'm working on what's next.<br />I <a href="/advising.html">help and advise</a> startups, <a href="/speaking.html">speak</a> to organizations about innovation and cultural change, and consult on a variety of technology projects.<br />Follow me on Twitter <a href="http://twitter.com/coryondrejka">here</a><br />cory.ondrejka@gmail.com<br /></div>
-  {% include postslimited.html %}
-  <div class="recent-comments"><div id="dsq-recentcomments" class="dsq-widget"><span class="dsq-widget-title"></span><script type="text/javascript" src="http://disqus.com/forums/collapsinggeography/recent_comments_widget.js?num_items=3&avatar_size=32&hide_avatars=1"></script></div></div>
-</div>
--->
 
 
-<ul>
-<li><a href="blog.html">Blog</a><br>
-<li><a href="http://www.cs.cmu.edu/~jhclark">CMU Homepage</a>
-<ul>
+<script>
+   /**
+    * File System Structure
+    * Using a simple nested object approach.
+    * type: 'file' | 'dir'
+    * content: string (for files) or object (for dirs)
+    */
+   const fileSystem = {
+       name: 'root',
+       type: 'dir',
+       children: {
+           'about.txt': {
+               type: 'file',
+               content: `
+Hi, I'm a Developer and Researcher passionate about minimalist design and efficient code.
 
+
+I specialize in:
+- Web Development (React, Node.js)
+- Systems Programming (C++, Rust)
+- UI/UX Design
+
+
+Type <span class="highlight">cat contact.txt</span> to get in touch.
+`
+           },
+           'contact.txt': {
+               type: 'file',
+               content: `
+Email:   hello@example.com
+GitHub:  github.com/example
+Twitter: @example
+
+
+Feel free to reach out for collaborations!
+`
+           },
+           'skills.md': {
+               type: 'file',
+               content: `
+# Technical Skills
+
+
+Languages: JavaScript, TypeScript, Python, C++, Go
+Frontend:  React, Vue, Tailwind CSS
+Backend:   Node.js, Django, PostgreSQL, Redis
+Tools:     Git, Docker, Kubernetes, AWS
+`
+           },
+           'papers': {
+               type: 'dir',
+               children: {
+                   'ai-ethics.txt': {
+                       type: 'file',
+                       content: `
+Title: The Ethics of Artificial Intelligence in 2025
+Published: Journal of Future Tech
+Summary: An exploration of bias in large language models and mitigation strategies.
+`
+                   },
+                   'quantum-web.txt': {
+                       type: 'file',
+                       content: `
+Title: Quantum Computing and the Future of Encryption
+Published: Tech Weekly
+Summary: How quantum supremacy might affect current SSL/TLS standards.
+`
+                   },
+                   'readme.txt': {
+                       type: 'file',
+                       content: "This directory contains summaries of my recent publications."
+                   }
+               }
+           },
+           'projects': {
+               type: 'dir',
+               children: {
+                   'term-site.js': {
+                       type: 'file',
+                       content: "// You are looking at it right now!"
+                   },
+                   'todo-app.py': {
+                       type: 'file',
+                       content: "# A simple CLI todo app written in Python."
+                   }
+               }
+           }
+       }
+   };
+
+
+   // State Management
+   let currentPath = []; // Empty array = root. ['papers'] = /papers
+   let commandHistory = [];
+   let historyIndex = -1;
+
+
+   // DOM Elements
+   const outputDiv = document.getElementById('output');
+   const cmdInput = document.getElementById('cmd-input');
+   const promptText = document.getElementById('prompt-text');
+   const inputLine = document.getElementById('input-line');
+
+
+   // Boot Sequence
+   const bootLines = [
+       "Initializing kernel...",
+       "Loading modules...",
+       "Mounting virtual file system...",
+       "Starting shell...",
+       "Welcome to Portfolio OS v1.0.0",
+       "Type 'help' to see available commands."
+   ];
+
+
+   async function runBootSequence() {
+       for (let line of bootLines) {
+           await new Promise(r => setTimeout(r, 300));
+           printLine(line, 'dim');
+       }
+       await new Promise(r => setTimeout(r, 500));
+       printLine("<br>", '');
+      
+       // ASCII Art Header
+       const art = `
+ ____            _    __       _ _      
+|  _ \\ ___  _ __| |_ / _| ___ | (_) ___ 
+| |_) / _ \\| '__| __| |_ / _ \\| | |/ _ \\
+|  __/ (_) | |  | |_|  _| (_) | | | (_) |
+|_|   \\___/|_|   \\__|_|  \\___/|_|_|\\___/
+                                        
+`;
+       printLine(art, 'ascii-art');
+       inputLine.style.display = 'flex';
+       cmdInput.focus();
+   }
+
+
+   // Utility Functions
+   function printLine(text, className = '') {
+       const div = document.createElement('div');
+       div.className = 'output-line ' + className;
+       div.innerHTML = text;
+       outputDiv.appendChild(div);
+       window.scrollTo(0, document.body.scrollHeight);
+   }
+
+
+   function getCurrentDir() {
+       let current = fileSystem;
+       for (let folder of currentPath) {
+           current = current.children[folder];
+       }
+       return current;
+   }
+
+
+   function updatePrompt() {
+       const pathString = currentPath.length === 0 ? '~' : '~/' + currentPath.join('/');
+       promptText.innerText = `guest@portfolio:${pathString}$`;
+       document.title = `guest@portfolio:${pathString}`;
+   }
+
+
+   // Command Handlers
+   const commands = {
+       help: () => {
+           printLine("Available commands:", "highlight");
+           printLine("  ls           List directory contents");
+           printLine("  cd [dir]     Change directory");
+           printLine("  cat [file]   Display file contents");
+           printLine("  clear        Clear the terminal screen");
+           printLine("  pwd          Print working directory");
+           printLine("  whoami       Display current user");
+           printLine("  history      Show command history");
+       },
+       clear: () => {
+           outputDiv.innerHTML = '';
+       },
+       whoami: () => {
+           printLine("guest", "highlight");
+       },
+       pwd: () => {
+           printLine("/home/guest/" + currentPath.join('/'));
+       },
+       history: () => {
+           commandHistory.forEach((cmd, i) => {
+               printLine(`${i + 1}  ${cmd}`);
+           });
+       },
+       ls: (args) => {
+           const dir = getCurrentDir();
+           const items = Object.keys(dir.children).map(key => {
+               const isDir = dir.children[key].type === 'dir';
+               const suffix = isDir ? '/' : '';
+               const className = isDir ? 'dir' : 'file';
+               return `<span class="${className}">${key}${suffix}</span>`;
+           });
+           printLine(items.join('  '));
+       },
+       cd: (args) => {
+           if (!args[0] || args[0] === '~') {
+               currentPath = [];
+               updatePrompt();
+               return;
+           }
+          
+           if (args[0] === '..') {
+               if (currentPath.length > 0) {
+                   currentPath.pop();
+               }
+               updatePrompt();
+               return;
+           }
+
+
+           const target = args[0];
+           const currentDir = getCurrentDir();
+
+
+           // Handle relative paths with slashes e.g. papers/
+           // For simplicity in this demo, we mostly handle single level or specific complex paths
+           // Let's do simple single-level check
+           const cleanTarget = target.replace(/\/$/, ''); // remove trailing slash
+
+
+           if (currentDir.children[cleanTarget] && currentDir.children[cleanTarget].type === 'dir') {
+               currentPath.push(cleanTarget);
+               updatePrompt();
+           } else {
+               printLine(`cd: ${target}: No such directory`, 'error');
+           }
+       },
+       cat: (args) => {
+           if (!args[0]) {
+               printLine("usage: cat [file]", 'dim');
+               return;
+           }
+           const target = args[0];
+           const currentDir = getCurrentDir();
+
+
+           if (currentDir.children[target]) {
+               if (currentDir.children[target].type === 'file') {
+                   printLine(currentDir.children[target].content);
+               } else {
+                   printLine(`cat: ${target}: Is a directory`, 'error');
+               }
+           } else {
+               printLine(`cat: ${target}: No such file`, 'error');
+           }
+       }
+   };
+
+
+   // Event Listeners
+   cmdInput.addEventListener('keydown', (e) => {
+       if (e.key === 'Enter') {
+           const input = cmdInput.value.trim();
+           if (input) {
+               // Print the command line to history
+               const pathString = currentPath.length === 0 ? '~' : '~/' + currentPath.join('/');
+               printLine(`<span class="prompt">guest@portfolio:${pathString}$</span> ${input}`);
+              
+               commandHistory.push(input);
+               historyIndex = commandHistory.length;
+
+
+               // Parse command
+               const parts = input.split(/\s+/);
+               const cmd = parts[0].toLowerCase();
+               const args = parts.slice(1);
+
+
+               if (commands[cmd]) {
+                   commands[cmd](args);
+               } else {
+                   printLine(`${cmd}: command not found`, 'error');
+               }
+           } else {
+               // Empty enter
+               const pathString = currentPath.length === 0 ? '~' : '~/' + currentPath.join('/');
+               printLine(`<span class="prompt">guest@portfolio:${pathString}$</span>`);
+           }
+          
+           cmdInput.value = '';
+           window.scrollTo(0, document.body.scrollHeight);
+       } else if (e.key === 'ArrowUp') {
+           e.preventDefault();
+           if (historyIndex > 0) {
+               historyIndex--;
+               cmdInput.value = commandHistory[historyIndex];
+           }
+       } else if (e.key === 'ArrowDown') {
+           e.preventDefault();
+           if (historyIndex < commandHistory.length - 1) {
+               historyIndex++;
+               cmdInput.value = commandHistory[historyIndex];
+           } else {
+               historyIndex = commandHistory.length;
+               cmdInput.value = '';
+           }
+       } else if (e.key === 'Tab') {
+           e.preventDefault();
+           const input = cmdInput.value;
+           const parts = input.split(/\s+/);
+          
+           // Simple Autocomplete for last argument
+           if (parts.length > 0) {
+               const lastWord = parts[parts.length - 1];
+               const currentDir = getCurrentDir();
+               const possibilities = Object.keys(currentDir.children).filter(k => k.startsWith(lastWord));
+              
+               if (possibilities.length === 1) {
+                   parts[parts.length - 1] = possibilities[0];
+                   cmdInput.value = parts.join(' ');
+               } else if (possibilities.length > 1) {
+                   // Optional: Show possibilities if multiple
+                   // For now, just don't complete
+               }
+           }
+       }
+   });
+
+
+   // Initialize
+   runBootSequence();
+
+
+</script>
+</body>
+</html>
